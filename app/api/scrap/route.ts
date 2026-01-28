@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
                 browser = await puppeteerCore.launch({
                     args: [...chromium.args, "--hide-scrollbars", "--disable-web-security"],
                     defaultViewport: { width: 1366, height: 768 },
-                    executablePath: await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar'),
+                    executablePath: await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar'),
                     headless: true,
                 });
             } else {
