@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import puppeteer from "puppeteer";
+import chromium from "@sparticuz/chromium";
+import puppeteerCore from "puppeteer-core";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -12,10 +13,21 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "URL is required" }, { status: 400 });
         }
 
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ["--no-sandbox", "--disable-setuid-sandbox"],
-        });
+        let browser;
+        if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+            browser = await puppeteerCore.launch({
+                args: chromium.args,
+                defaultViewport: { width: 1366, height: 768 },
+                executablePath: await chromium.executablePath(),
+                headless: true,
+            });
+        } else {
+            const puppeteer = await import("puppeteer");
+            browser = await puppeteer.default.launch({
+                headless: true,
+                args: ["--no-sandbox", "--disable-setuid-sandbox"],
+            });
+        }
 
         const page = await browser.newPage();
 
