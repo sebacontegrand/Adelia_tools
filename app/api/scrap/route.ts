@@ -5,6 +5,10 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
+// Allow Vercel functions to run longer (up to 60s on Pro, 10s on Hobby)
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
     try {
         const { url } = await req.json();
@@ -14,19 +18,32 @@ export async function POST(req: NextRequest) {
         }
 
         let browser;
-        if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
-            browser = await puppeteerCore.launch({
-                args: chromium.args,
-                defaultViewport: { width: 1366, height: 768 },
-                executablePath: await chromium.executablePath(),
-                headless: true,
-            });
-        } else {
-            const puppeteer = await import("puppeteer");
-            browser = await puppeteer.default.launch({
-                headless: true,
-                args: ["--no-sandbox", "--disable-setuid-sandbox"],
-            });
+        try {
+            if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+                // Configure @sparticuz/chromium
+                // Ensure we have a valid executable path
+                const executablePath = await chromium.executablePath();
+                console.log("Launching Chromium from:", executablePath);
+
+                browser = await puppeteerCore.launch({
+                    args: [...chromium.args, "--hide-scrollbars", "--disable-web-security"],
+                    defaultViewport: { width: 1366, height: 768 },
+                    executablePath: executablePath,
+                    headless: true,
+                });
+            } else {
+                const puppeteer = await import("puppeteer");
+                browser = await puppeteer.default.launch({
+                    headless: true,
+                    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+                });
+            }
+        } catch (launchError) {
+            console.error("Browser launch failed:", launchError);
+            return NextResponse.json(
+                { error: `Browser Launch Failed: ${launchError instanceof Error ? launchError.message : String(launchError)}` },
+                { status: 500 }
+            );
         }
 
         const page = await browser.newPage();
