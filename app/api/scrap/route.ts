@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "URL is required" }, { status: 400 });
         }
 
-        let browser;
+        let browser: any;
         try {
             if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
                 // Configure @sparticuz/chromium-min
