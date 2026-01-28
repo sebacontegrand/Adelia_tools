@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import chromium from "@sparticuz/chromium";
+import chromium from "@sparticuz/chromium-min";
 import puppeteerCore from "puppeteer-core";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -20,15 +20,12 @@ export async function POST(req: NextRequest) {
         let browser;
         try {
             if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
-                // Configure @sparticuz/chromium
-                // Ensure we have a valid executable path
-                const executablePath = await chromium.executablePath();
-                console.log("Launching Chromium from:", executablePath);
-
+                // Configure @sparticuz/chromium-min
+                // Download from GitHub Releases
                 browser = await puppeteerCore.launch({
                     args: [...chromium.args, "--hide-scrollbars", "--disable-web-security"],
                     defaultViewport: { width: 1366, height: 768 },
-                    executablePath: executablePath,
+                    executablePath: await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar'),
                     headless: true,
                 });
             } else {
