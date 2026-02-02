@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
                     ],
                     defaultViewport: chromium.defaultViewport,
                     executablePath: await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v132.0.0/chromium-v132.0.0-pack.tar'),
-                    headless: chromium.headless,
+                    headless: chromium.headless as any,
                 });
             } else {
                 console.log("Detecting local puppeteer...");
