@@ -21,7 +21,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.563.0",
     "next": "16.1.4",
-    "puppeteer-core": "23.10.1",
+    "puppeteer-core": "^24.36.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.71.1",
