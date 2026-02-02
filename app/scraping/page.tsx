@@ -112,7 +112,8 @@ export default function ScrapingPage() {
             });
 
             if (!response.ok) {
-                throw new Error("Failed to scrape the website");
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `Server Error: ${response.status}`);
             }
 
             const data = await response.json();
