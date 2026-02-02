@@ -28,13 +28,16 @@ export async function POST(req: NextRequest) {
         try {
             console.log("Launching browser...");
             if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
-                // Configure @sparticuz/chromium-min
+                // Configure @sparticuz/chromium (Full version for AL2023 support)
+                console.log("Chromium args:", chromium.args);
                 browser = await puppeteerCore.launch({
                     args: [
                         ...chromium.args,
                         "--hide-scrollbars",
                         "--disable-web-security",
                         "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage"
                     ],
                     defaultViewport: chromium.defaultViewport,
                     executablePath: await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v132.0.0/chromium-v132.0.0-pack.tar'),
