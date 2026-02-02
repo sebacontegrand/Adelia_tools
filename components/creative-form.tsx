@@ -46,6 +46,8 @@ const formSchema = z.object({
     animationStyle: z.string().min(1, "Animation style is required"),
     creativeFormat: z.enum(["Standard", "Gamified", "Interactive"]).default("Standard"),
     bgImageData: z.string().optional(),
+    logoImageData: z.string().optional(),
+    productImageDatas: z.array(z.string()).optional(),
     complianceConstraints: z.string().optional(),
     clickTagVar: z.string().default("clickTag"),
 })
@@ -53,7 +55,7 @@ const formSchema = z.object({
 
 
 interface GeneratedCreative {
-
+    id: string;
     meta: any;
     files: Array<{ path: string, type: string, content: string }>;
 }
@@ -71,8 +73,10 @@ const fileToBase64 = (file: File): Promise<string> => {
 
 export function CreativeForm() {
     const [isLoading, setIsLoading] = useState(false);
-    const [creative, setCreative] = useState<GeneratedCreative | null>(null);
+    const [creatives, setCreatives] = useState<GeneratedCreative[] | null>(null);
+    const [selectedIndex, setSelectedIndex] = useState<number>(0);
     const [previewSrc, setPreviewSrc] = useState<string>("");
+    const [assetsBase64, setAssetsBase64] = useState<Record<string, string>>({});
 
 
 
@@ -102,9 +106,55 @@ export function CreativeForm() {
         },
     })
 
+    const updatePreview = (ad: GeneratedCreative) => {
+        if (ad.files) {
+            const indexHtmlFile = ad.files.find((f: any) => f.path === 'index.html');
+            const styleCssFile = ad.files.find((f: any) => f.path === "styles.css");
+            const scriptJsFile = ad.files.find((f: any) => f.path === "script.js");
+
+            if (indexHtmlFile) {
+                let html = indexHtmlFile.content;
+                let css = styleCssFile ? styleCssFile.content : "";
+                let js = scriptJsFile ? scriptJsFile.content : "";
+
+                // Helper to replace asset paths with Base64
+                const injectAssets = (content: string) => {
+                    let newContent = content;
+                    Object.entries(assetsBase64).forEach(([filename, base64]) => {
+                        const regex = new RegExp(`(\\./)?assets/${filename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
+                        newContent = newContent.replace(regex, base64);
+                    });
+                    return newContent;
+                };
+
+                html = injectAssets(html);
+                css = injectAssets(css);
+                js = injectAssets(js);
+
+                if (css) {
+                    if (html.includes('href="styles.css"')) {
+                        html = html.replace(/<link rel="stylesheet" href="styles.css"[^>]*>/, `<style>${css}</style>`);
+                    } else {
+                        html = html.replace('</head>', `<style>${css}</style></head>`);
+                    }
+                }
+
+                if (js) {
+                    if (html.includes('src="script.js"')) {
+                        html = html.replace(/<script src="script.js"><\/script>/, `<script>${js}</script>`);
+                    } else {
+                        html = html.replace('</body>', `<script>${js}</script></body>`);
+                    }
+                }
+
+                setPreviewSrc(html);
+            }
+        }
+    };
+
     async function onSubmit(values: FormValues) {
         setIsLoading(true);
-        setCreative(null);
+        setCreatives(null);
         setPreviewSrc("");
 
         try {
@@ -116,41 +166,12 @@ export function CreativeForm() {
                 body: JSON.stringify(values),
             });
             const data = await response.json();
-            setCreative(data);
 
-            // Assemble preview
-            if (data.files) {
-                const indexHtmlFile = data.files.find((f: any) => f.path === 'index.html');
-                const styleCssFile = data.files.find((f: any) => f.path === "styles.css");
-                const scriptJsFile = data.files.find((f: any) => f.path === "script.js");
-
-                if (indexHtmlFile) {
-                    let html = indexHtmlFile.content;
-
-                    // Inject CSS
-                    if (styleCssFile) {
-                        // Replace <link rel="stylesheet" href="styles.css"> with inline style
-                        // Simple replacement for now, assumes standard formatting or just append if not found
-                        if (html.includes('href="styles.css"')) {
-                            html = html.replace('<link rel="stylesheet" href="styles.css">', `<style>${styleCssFile.content}</style>`);
-                        } else {
-                            html = html.replace('</head>', `<style>${styleCssFile.content}</style></head>`);
-                        }
-                    }
-
-                    // Inject JS
-                    if (scriptJsFile) {
-                        // Replace <script src="script.js"></script> with inline script
-                        if (html.includes('src="script.js"')) {
-                            html = html.replace('<script src="script.js"></script>', `<script>${scriptJsFile.content}</script>`);
-                        } else {
-                            html = html.replace('</body>', `<script>${scriptJsFile.content}</script></body>`);
-                        }
-                    }
-
-                    setPreviewSrc(html);
-                }
-            }
+            // Check if data is an array or a single object (fallback)
+            const creativeArray = Array.isArray(data) ? data : [data];
+            setCreatives(creativeArray);
+            setSelectedIndex(0);
+            updatePreview(creativeArray[0]);
 
         } catch (error) {
             console.error("Generator failed", error);
@@ -416,7 +437,7 @@ export function CreativeForm() {
                                             <FormItem>
                                                 <FormLabel>Background Image</FormLabel>
                                                 <FormControl>
-                                                    <div className="flex gap-2 items-center">
+                                                    <div className="flex flex-col gap-2">
                                                         <Input
                                                             type="file"
                                                             accept="image/*"
@@ -424,12 +445,13 @@ export function CreativeForm() {
                                                                 const file = e.target.files?.[0];
                                                                 if (file) {
                                                                     const base64 = await fileToBase64(file);
+                                                                    setAssetsBase64(prev => ({ ...prev, [file.name]: base64 }));
                                                                     form.setValue("bgImageData", base64);
                                                                     field.onChange(file.name);
                                                                 }
                                                             }}
                                                         />
-                                                        {field.value && <span className="text-xs text-muted-foreground">{field.value}</span>}
+                                                        {field.value && <span className="text-xs text-muted-foreground font-mono">Selected: {field.value}</span>}
                                                     </div>
                                                 </FormControl>
                                                 <FormMessage />
@@ -443,7 +465,22 @@ export function CreativeForm() {
                                             <FormItem>
                                                 <FormLabel>Logo Image</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="logo.png" {...field} />
+                                                    <div className="flex flex-col gap-2">
+                                                        <Input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={async (e) => {
+                                                                const file = e.target.files?.[0];
+                                                                if (file) {
+                                                                    const base64 = await fileToBase64(file);
+                                                                    setAssetsBase64(prev => ({ ...prev, [file.name]: base64 }));
+                                                                    form.setValue("logoImageData", base64);
+                                                                    field.onChange(file.name);
+                                                                }
+                                                            }}
+                                                        />
+                                                        {field.value && <span className="text-xs text-muted-foreground font-mono">Selected: {field.value}</span>}
+                                                    </div>
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -456,7 +493,7 @@ export function CreativeForm() {
                                             <FormItem>
                                                 <FormLabel>Product Images (Optional)</FormLabel>
                                                 <FormControl>
-                                                    <div className="flex gap-2 items-center">
+                                                    <div className="flex flex-col gap-2">
                                                         <Input
                                                             type="file"
                                                             accept="image/*"
@@ -464,18 +501,24 @@ export function CreativeForm() {
                                                             onChange={async (e) => {
                                                                 const files = e.target.files;
                                                                 if (files && files.length > 0) {
-                                                                    // For now just take the first one or handle text logic.
-                                                                    // The schema expects a comma-separated string of names.
-                                                                    // We won't upload multiple product images fully in this prototype yet.
-                                                                    const file = files[0];
-                                                                    // field.onChange(file.name); // Just set the name for now
-                                                                    // In a real app we'd map all files to base64.
-                                                                    // Let's just do single product image for simplicity of the prompt.
-                                                                    field.onChange(Array.from(files).map(f => f.name).join(", "));
+                                                                    const names: string[] = [];
+                                                                    const newAssets: Record<string, string> = {};
+                                                                    const newDatas: string[] = [];
+
+                                                                    for (const file of Array.from(files)) {
+                                                                        const base64 = await fileToBase64(file);
+                                                                        newAssets[file.name] = base64;
+                                                                        newDatas.push(base64);
+                                                                        names.push(file.name);
+                                                                    }
+
+                                                                    setAssetsBase64(prev => ({ ...prev, ...newAssets }));
+                                                                    form.setValue("productImageDatas", newDatas);
+                                                                    field.onChange(names.join(", "));
                                                                 }
                                                             }}
                                                         />
-                                                        {field.value && <span className="text-xs text-muted-foreground truncate max-w-[200px]">{field.value}</span>}
+                                                        {field.value && <span className="text-xs text-muted-foreground font-mono truncate max-w-full">Selected: {field.value}</span>}
                                                     </div>
                                                 </FormControl>
                                                 <FormMessage />
@@ -531,31 +574,58 @@ export function CreativeForm() {
 
             {/* Preview Section */}
             <div className="w-full lg:w-[500px] xl:w-[600px] shrink-0 space-y-4 sticky top-6">
-                {previewSrc && creative ? (
-                    <Card className="shadow-xl overflow-hidden">
-                        <CardHeader className="bg-slate-800 text-white">
-                            <CardTitle>Creative Preview</CardTitle>
-                            <CardDescription className="text-slate-300">
-                                {creative.meta.creativeName} ({creative.meta.dimensions.width}x{creative.meta.dimensions.height})
-                            </CardDescription>
+                {previewSrc && creatives ? (
+                    <Card className="shadow-xl overflow-hidden border-2 border-blue-100">
+                        <CardHeader className="bg-slate-900 text-white">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <CardTitle className="text-lg">Option {selectedIndex + 1}: {creatives[selectedIndex].id}</CardTitle>
+                                    <CardDescription className="text-slate-400">
+                                        {creatives[selectedIndex].meta.creativeName} ({creatives[selectedIndex].meta.dimensions.width}x{creatives[selectedIndex].meta.dimensions.height})
+                                    </CardDescription>
+                                </div>
+                                <div className="flex gap-1 bg-slate-800 p-1 rounded-md">
+                                    {creatives.map((_, i) => (
+                                        <Button
+                                            key={i}
+                                            variant={selectedIndex === i ? "default" : "ghost"}
+                                            size="sm"
+                                            className="h-8 w-8 p-0"
+                                            onClick={() => {
+                                                setSelectedIndex(i);
+                                                updatePreview(creatives[i]);
+                                            }}
+                                        >
+                                            {i + 1}
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
                         </CardHeader>
-                        <CardContent className="p-0 bg-checkerboard flex items-center justify-center min-h-[300px] bg-slate-200/50">
-                            {/* Wrapper to handle scaling if needed, for now just centering */}
+                        <CardContent className="p-0 bg-checkerboard flex items-center justify-center min-h-[400px] bg-slate-200/50">
                             <div className="p-4 overflow-auto max-w-full max-h-[80vh]">
                                 <iframe
+                                    key={selectedIndex}
                                     title="Ad Preview"
                                     srcDoc={previewSrc}
-                                    width={creative.meta.dimensions.width}
-                                    height={creative.meta.dimensions.height}
-                                    style={{ border: 'none', boxShadow: '0 0 20px rgba(0,0,0,0.1)' }}
+                                    width={creatives[selectedIndex].meta.dimensions.width}
+                                    height={creatives[selectedIndex].meta.dimensions.height}
+                                    style={{ border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.15)', background: 'white' }}
                                 />
                             </div>
                         </CardContent>
-                        <CardFooter className="bg-white p-4 border-t flex justify-between">
-                            <div className="text-xs text-muted-foreground">
-                                Files: {creative.files.map(f => f.path).join(', ')}
+                        <CardFooter className="bg-white p-4 border-t flex flex-col gap-3">
+                            <div className="flex justify-between w-full items-center">
+                                <div className="text-[10px] text-muted-foreground font-mono truncate max-w-[70%]">
+                                    Files: {creatives[selectedIndex].files.map(f => f.path).join(', ')}
+                                </div>
+                                <Button size="sm" className="bg-green-600 hover:bg-green-700 h-8">Download ZIP</Button>
                             </div>
-                            <Button variant="outline" size="sm">Download ZIP</Button>
+                            {creatives[selectedIndex].meta.notes && creatives[selectedIndex].meta.notes.length > 0 && (
+                                <div className="bg-blue-50 p-2 rounded text-[11px] text-blue-700 italic">
+                                    <strong>Designer Notes:</strong> {creatives[selectedIndex].meta.notes[0]}
+                                </div>
+                            )}
                         </CardFooter>
                     </Card>
                 ) : (

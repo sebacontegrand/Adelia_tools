@@ -6,25 +6,28 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     // Construct the prompt for the LLM
-    const systemPrompt = `You are an expert creative technologist and performance advertiser. 
-Your job is to generate a complete HTML5 ad creative specification and the HTML/CSS/JS content based on provided inputs.
+    const systemPrompt = `You are an elite creative technologist and high-performance advertising director. 
+Your job is to generate three (3) distinct, high-impact HTML5 ad creative variations based on provided inputs and uploaded images.
 
 Hard requirements:
 - Output MUST be valid JSON only. No markdown, no commentary.
-- The JSON MUST match the schema provided.
-- The HTML must be self-contained and reference local assets only (relative paths like "./assets/bg.jpg").
-- Do NOT fetch external resources (no CDN scripts, no remote images, no Google fonts).
-- Keep the JS minimal and safe (no eval, no inline third-party tracking).
-- The ad must include accessible text alternatives and a clear call-to-action.
-- If a YouTube video is provided, embed it in a way suitable for ad environments: use a click-to-open fallback if autoplay is not allowed.
-- Ensure the creative is responsive within the given width/height.
-- Respect the brand voice and compliance constraints provided.`;
+- The JSON MUST be an array containing 3 distinct creative objects.
+- Each creative must have its own "id", "meta", "files", and "manifest".
+- The HTML must be self-contained and reference local assets under "./assets/".
+- If a provided asset name is missing, use high-quality placeholders.
+- Designs must be "WOW" level: modern, vibrant, and perfectly matched to the color palette and style of the uploaded images.
+- THE BACKGROUND IMAGE (if provided via Vision) IS YOUR PRIMARY INSPIRATION: its colors, lighting, composition, and mood must dictate the entire creative direction of the ad.
+- YOU MUST ANALYZE THE UPLOADED IMAGES TO EXTRACT COLOR PALETTES, TYPOGRAPHY STYLE, AND BRAND VIBE.
+- Variations should differ in layout and animation, but all must feel like a natural extension of the uploaded background.
+- Keep the JS minimal and safe.
+- Ensure the creative is responsive within the given width/height.`;
 
     const userTemplate = `Generate an HTML5 advertisement creative and a ZIP package plan using the inputs below.
 
-Return JSON matching this schema exactly:
+Return a JSON ARRAY of 3 objects, each matching this schema:
 
 {
+  "id": string (unique slug like "v1-minimalist"),
   "meta": {
     "creativeName": string,
     "dimensions": { "width": number, "height": number },
@@ -76,13 +79,11 @@ Inputs:
 16) Background Image Data (Base64): ${body.bgImageData ? "Provided (starts with " + body.bgImageData.substring(0, 30) + "...)" : "Not provided"}
 
 Deliverables:
-- Write persuasive ad copy (headline + subhead + CTA) aligned with objective and audience.
-- Build a clean layout with logo, message, and CTA.
-- If video is provided: show a video preview block with a play button and a fallback link that opens the video in a new tab on click.
-- If audio is provided: do NOT autoplay; provide a small “sound” toggle button to play/pause.
-- Include a basic impression-safe animation (CSS transitions) unless animationStyle = none.
-- If "Gamified": Create a simple click-interaction game (e.g. catch the falling object, click target to reveal offer). Use vanilla JS or Canvas.
-- Ensure the creative works without any external dependencies.`;
+- 3 distinct variations that "WOW" the user. 
+- Use premium color palettes and modern layout techniques (flexbox, grid).
+- Variated headlines and CTAs across the 3 options.
+- If "Gamified": The variations should offer different simple mechanics.
+- Ensure each variation works perfectly as a standalone preview.`;
 
     console.log("System Prompt:", systemPrompt);
     console.log("User Prompt:", userTemplate);
@@ -95,11 +96,45 @@ Deliverables:
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-lite-preview-02-05",
+        model: "gemini-2.0-flash",
         generationConfig: {
           responseMimeType: "application/json",
         }
       });
+
+      // Prepare multi-modal parts
+      const promptParts: any[] = [systemPrompt, userTemplate];
+
+      // Helper to convert base64 to parts
+      const assetToPart = (base64Data: string) => {
+        if (!base64Data || !base64Data.includes(';base64,')) return null;
+        const [mimeTypePart, data] = base64Data.split(';base64,');
+        const mimeType = mimeTypePart.split(':')[1];
+        return {
+          inlineData: {
+            data: data,
+            mimeType: mimeType
+          }
+        };
+      };
+
+      if (body.bgImageData) {
+        const part = assetToPart(body.bgImageData);
+        if (part) promptParts.push(part);
+      }
+
+      if (body.logoImageData) {
+        const part = assetToPart(body.logoImageData);
+        if (part) promptParts.push(part);
+      }
+
+      // If there are multiple product image datas, they could be sent as well
+      if (body.productImageDatas && Array.isArray(body.productImageDatas)) {
+        body.productImageDatas.forEach((data: string) => {
+          const part = assetToPart(data);
+          if (part) promptParts.push(part);
+        });
+      }
 
       let result;
       let retryCount = 0;
@@ -107,7 +142,7 @@ Deliverables:
 
       while (retryCount < maxRetries) {
         try {
-          result = await model.generateContent([systemPrompt, userTemplate]);
+          result = await model.generateContent(promptParts);
           break; // Success, exit loop
         } catch (callError: any) {
           if (callError.message?.includes('429') || callError.status === 429) {
