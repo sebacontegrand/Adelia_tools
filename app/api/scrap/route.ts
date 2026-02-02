@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import chromium from "@sparticuz/chromium";
+
 import puppeteerCore from "puppeteer-core";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -27,21 +27,10 @@ export async function POST(req: NextRequest) {
 
         try {
             console.log("Launching browser...");
-            if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
-                // Configure @sparticuz/chromium (Full version for AL2023 support)
-                console.log("Chromium args:", chromium.args);
-                browser = await puppeteerCore.launch({
-                    args: [
-                        ...chromium.args,
-                        "--hide-scrollbars",
-                        "--disable-web-security",
-                        "--no-sandbox",
-                        "--disable-setuid-sandbox",
-                        "--disable-dev-shm-usage"
-                    ],
-                    defaultViewport: chromium.defaultViewport,
-                    executablePath: await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v132.0.0/chromium-v132.0.0-pack.tar'),
-                    headless: chromium.headless as any,
+            if (process.env.BROWSERLESS_API_KEY) {
+                console.log("Connecting to Browserless...");
+                browser = await puppeteerCore.connect({
+                    browserWSEndpoint: `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
                 });
             } else {
                 console.log("Detecting local puppeteer...");
