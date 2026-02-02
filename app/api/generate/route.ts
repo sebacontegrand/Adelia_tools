@@ -76,7 +76,8 @@ Inputs:
 13) Creative Format: ${body.creativeFormat} (IMPORTANT: If "Gamified", the output MUST be a playable mini-game using simple JS/Canvas, not just a banner)
 14) Compliance constraints: ${body.complianceConstraints}
 15) clickTag variable name: ${body.clickTagVar}
-16) Background Image Data (Base64): ${body.bgImageData ? "Provided (starts with " + body.bgImageData.substring(0, 30) + "...)" : "Not provided"}
+16) Custom Ideas / Creative Instructions: ${body.customIdeas || "None provided. Use your creative expertise."}
+17) Background Image Data (Base64): ${body.bgImageData ? "Provided (starts with " + body.bgImageData.substring(0, 30) + "...)" : "Not provided"}
 
 Deliverables:
 - 3 distinct variations that "WOW" the user. 

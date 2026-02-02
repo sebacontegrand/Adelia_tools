@@ -189,8 +189,8 @@ export default function ScrapingPage() {
                                 <h2 className="text-2xl font-semibold">Detected Ads ({ads.length})</h2>
                                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                     {ads.map((ad, i) => (
-                                        <Card key={i} className="overflow-hidden flex flex-col">
-                                            <div className="bg-slate-100 h-32 flex items-center justify-center text-slate-400 text-xs">
+                                        <Card key={i} className="overflow-hidden flex flex-col border-border/50 bg-card/50">
+                                            <div className="bg-muted h-32 flex items-center justify-center text-muted-foreground text-xs">
                                                 No Preview
                                             </div>
                                             <CardHeader className="pb-2">
@@ -272,15 +272,15 @@ export default function ScrapingPage() {
                                         </CardHeader>
                                         <CardContent className="text-sm space-y-2">
                                             <div className="grid grid-cols-2 gap-2 text-xs">
-                                                <div className="bg-slate-100 p-2 rounded">
+                                                <div className="bg-muted p-2 rounded">
                                                     <span className="block text-muted-foreground">Dimensions</span>
                                                     <span className="font-medium">{ad.width}x{ad.height}</span>
                                                 </div>
-                                                <div className="bg-slate-100 p-2 rounded">
+                                                <div className="bg-muted p-2 rounded">
                                                     <span className="block text-muted-foreground">Type</span>
                                                     <span className="font-medium truncate" title={ad.type}>{ad.type}</span>
                                                 </div>
-                                                <div className="bg-slate-100 p-2 rounded col-span-2">
+                                                <div className="bg-muted p-2 rounded col-span-2">
                                                     <span className="block text-muted-foreground">Location</span>
                                                     <span className="font-medium">{ad.location}</span>
                                                 </div>

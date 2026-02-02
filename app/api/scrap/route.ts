@@ -28,9 +28,10 @@ export async function POST(req: NextRequest) {
         try {
             console.log("Launching browser...");
             if (process.env.BROWSERLESS_API_KEY) {
-                console.log("Connecting to Browserless...");
+                console.log("Connecting to Browserless (Stealth Mode)...");
+                // Added &stealth and other parameters to improve scraping effectiveness
                 browser = await puppeteerCore.connect({
-                    browserWSEndpoint: `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`,
+                    browserWSEndpoint: `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}&stealth&--disable-features=IsolateOrigins,site-per-process`,
                 });
             } else {
                 console.log("Detecting local puppeteer...");
@@ -49,14 +50,41 @@ export async function POST(req: NextRequest) {
         }
 
         const page = await browser.newPage();
+
+        // Use a realistic user agent
+        await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
         await page.setViewport({ width: 1366, height: 768 });
 
         try {
             console.log("Navigating to page...");
             await page.goto(url, { waitUntil: "networkidle2", timeout: 45000 });
-            console.log("Page loaded.");
+
+            // Wait ritual for ads to load
+            console.log("Waiting for ad containers...");
+            await new Promise(r => setTimeout(r, 5000));
+
+            // Scroll ritual to trigger lazy-loaded ads
+            console.log("Scrolling for lazy loads...");
+            await page.evaluate(async () => {
+                await new Promise((resolve) => {
+                    let totalHeight = 0;
+                    const distance = 400;
+                    const timer = setInterval(() => {
+                        window.scrollBy(0, distance);
+                        totalHeight += distance;
+                        if (totalHeight >= 2000) { // Scroll down 2000px
+                            clearInterval(timer);
+                            resolve(true);
+                        }
+                    }, 200);
+                });
+                window.scrollTo(0, 0); // Scroll back up
+            });
+
+            await new Promise(r => setTimeout(r, 2000));
+            console.log("Page ready.");
         } catch (e) {
-            console.warn("Page load timed out or network idle not reached, continuing anyway...");
+            console.warn("Page navigation/wait failed, continuing anyway...", e);
         }
 
         // Identify potential ad containers

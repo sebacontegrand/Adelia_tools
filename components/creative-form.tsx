@@ -50,6 +50,7 @@ const formSchema = z.object({
     productImageDatas: z.array(z.string()).optional(),
     complianceConstraints: z.string().optional(),
     clickTagVar: z.string().default("clickTag"),
+    customIdeas: z.string().optional(),
 })
 
 
@@ -103,6 +104,7 @@ export function CreativeForm() {
             creativeFormat: "Standard",
             complianceConstraints: "None",
             clickTagVar: "clickTag",
+            customIdeas: "",
         },
     })
 
@@ -181,11 +183,11 @@ export function CreativeForm() {
     }
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 p-6 bg-slate-50 min-h-screen justify-center items-start">
-            <Card className="w-full max-w-3xl shadow-xl flex-1">
-                <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg">
+        <div className="flex flex-col lg:flex-row gap-6 p-6 min-h-screen justify-center items-start">
+            <Card className="w-full max-w-3xl flex-1 border-border/50 bg-card/50">
+                <CardHeader className="bg-card border-b text-foreground rounded-t-lg">
                     <CardTitle className="text-2xl font-bold">Adelia HTML5 Creative Generator</CardTitle>
-                    <CardDescription className="text-blue-100">
+                    <CardDescription className="text-muted-foreground">
                         Enter your campaign details to generate a high-performance HTML5 ad creative.
                     </CardDescription>
                 </CardHeader>
@@ -196,7 +198,7 @@ export function CreativeForm() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Brand & Objective */}
                                 <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">Campaign Strategy</h3>
+                                    <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">Campaign Strategy</h3>
 
                                     <FormField<FormValues>
                                         control={form.control as any}
@@ -264,11 +266,29 @@ export function CreativeForm() {
                                             </FormItem>
                                         )}
                                     />
+                                    <FormField<FormValues>
+                                        control={form.control as any}
+                                        name="customIdeas"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Custom Ideas / Instructions</FormLabel>
+                                                <FormControl>
+                                                    <Textarea
+                                                        placeholder="e.g. Use a futuristic theme, focus on high-speed motion, use specific punchlines..."
+                                                        className="resize-none h-24"
+                                                        {...field}
+                                                    />
+                                                </FormControl>
+                                                <FormDescription>Any specific concepts or instructions you want the AI to follow.</FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
                                 </div>
 
                                 {/* Creative Content */}
                                 <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">Creative Content</h3>
+                                    <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">Creative Content</h3>
 
                                     <FormField<FormValues>
                                         control={form.control as any}
@@ -317,7 +337,7 @@ export function CreativeForm() {
                             {/* Design Specs */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                                 <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">Design & Technical</h3>
+                                    <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">Design & Technical</h3>
 
                                     <div className="flex gap-4">
                                         <FormField<FormValues>
@@ -425,7 +445,7 @@ export function CreativeForm() {
 
                                 {/* Assets */}
                                 <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">Asset Filenames</h3>
+                                    <h3 className="text-lg font-semibold text-foreground border-b border-border pb-2">Asset Filenames</h3>
                                     <CardDescription className="pb-2">
                                         Enter the filenames of assets that will be in the build folder.
                                     </CardDescription>
@@ -558,7 +578,7 @@ export function CreativeForm() {
                             </div>
 
                             <div className="flex justify-end pt-4">
-                                <Button type="submit" size="lg" className="px-8 bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
+                                <Button type="submit" size="lg" className="px-8" disabled={isLoading}>
                                     {isLoading ? (
                                         <>
                                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -575,16 +595,16 @@ export function CreativeForm() {
             {/* Preview Section */}
             <div className="w-full lg:w-[500px] xl:w-[600px] shrink-0 space-y-4 sticky top-6">
                 {previewSrc && creatives ? (
-                    <Card className="shadow-xl overflow-hidden border-2 border-blue-100">
-                        <CardHeader className="bg-slate-900 text-white">
+                    <Card className="border-border/50 bg-card/50 overflow-hidden">
+                        <CardHeader className="bg-muted text-foreground">
                             <div className="flex justify-between items-center">
                                 <div>
                                     <CardTitle className="text-lg">Option {selectedIndex + 1}: {creatives[selectedIndex].id}</CardTitle>
-                                    <CardDescription className="text-slate-400">
+                                    <CardDescription className="text-muted-foreground">
                                         {creatives[selectedIndex].meta.creativeName} ({creatives[selectedIndex].meta.dimensions.width}x{creatives[selectedIndex].meta.dimensions.height})
                                     </CardDescription>
                                 </div>
-                                <div className="flex gap-1 bg-slate-800 p-1 rounded-md">
+                                <div className="flex gap-1 bg-background p-1 rounded-md">
                                     {creatives.map((_, i) => (
                                         <Button
                                             key={i}
@@ -602,7 +622,7 @@ export function CreativeForm() {
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent className="p-0 bg-checkerboard flex items-center justify-center min-h-[400px] bg-slate-200/50">
+                        <CardContent className="p-0 bg-checkerboard flex items-center justify-center min-h-[400px] bg-muted/20">
                             <div className="p-4 overflow-auto max-w-full max-h-[80vh]">
                                 <iframe
                                     key={selectedIndex}
@@ -614,15 +634,15 @@ export function CreativeForm() {
                                 />
                             </div>
                         </CardContent>
-                        <CardFooter className="bg-white p-4 border-t flex flex-col gap-3">
+                        <CardFooter className="bg-card p-4 border-t flex flex-col gap-3">
                             <div className="flex justify-between w-full items-center">
                                 <div className="text-[10px] text-muted-foreground font-mono truncate max-w-[70%]">
                                     Files: {creatives[selectedIndex].files.map(f => f.path).join(', ')}
                                 </div>
-                                <Button size="sm" className="bg-green-600 hover:bg-green-700 h-8">Download ZIP</Button>
+                                <Button size="sm" className="h-8">Download ZIP</Button>
                             </div>
                             {creatives[selectedIndex].meta.notes && creatives[selectedIndex].meta.notes.length > 0 && (
-                                <div className="bg-blue-50 p-2 rounded text-[11px] text-blue-700 italic">
+                                <div className="bg-muted p-2 rounded text-[11px] text-muted-foreground italic">
                                     <strong>Designer Notes:</strong> {creatives[selectedIndex].meta.notes[0]}
                                 </div>
                             )}
