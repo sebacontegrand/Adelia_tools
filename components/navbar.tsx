@@ -13,8 +13,7 @@ export function Navbar() {
             name: "HTML AI Generator",
             href: "/generator",
             icon: LayoutGrid,
-            disabled: true,
-            badge: "Under Construction",
+            disabled: false,
         },
         {
             name: "AdScraping",
@@ -41,11 +40,6 @@ export function Navbar() {
                             >
                                 <item.icon className="h-4 w-4" />
                                 <span>{item.name}</span>
-                                {item.badge && (
-                                    <span className="ml-2 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
-                                        {item.badge}
-                                    </span>
-                                )}
                             </div>
                         ) : (
                             <Link

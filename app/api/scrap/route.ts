@@ -34,14 +34,11 @@ export async function POST(req: NextRequest) {
                         ...chromium.args,
                         "--hide-scrollbars",
                         "--disable-web-security",
-                        "--disable-gpu",
-                        "--disable-dev-shm-usage",
                         "--no-sandbox",
-                        "--disable-setuid-sandbox"
                     ],
-                    defaultViewport: { width: 1366, height: 768 },
-                    executablePath: await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v123.0.1/chromium-v123.0.1-pack.tar'),
-                    headless: true,
+                    defaultViewport: chromium.defaultViewport,
+                    executablePath: await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v132.0.0/chromium-v132.0.0-pack.tar'),
+                    headless: chromium.headless,
                 });
             } else {
                 console.log("Detecting local puppeteer...");
