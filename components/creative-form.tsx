@@ -24,7 +24,9 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Loader2 } from "lucide-react"
+import { Loader2, Download } from "lucide-react"
+import JSZip from "jszip"
+import { saveAs } from "file-saver"
 
 const formSchema = z.object({
     objective: z.string().min(2, "Objective is required"),
@@ -107,6 +109,31 @@ export function CreativeForm() {
             customIdeas: "",
         },
     })
+
+    const handleDownloadZip = async () => {
+        if (!creatives || !creatives[selectedIndex]) return;
+        const currentAd = creatives[selectedIndex];
+        const zip = new JSZip();
+
+        // Add regular files
+        currentAd.files.forEach(file => {
+            if (file.type === 'text') {
+                zip.file(file.path, file.content);
+            }
+        });
+
+        // Add assets folder if we have base64 assets
+        const assetsFolder = zip.folder("assets");
+        if (assetsFolder) {
+            Object.entries(assetsBase64).forEach(([filename, base64]) => {
+                const pureBase64 = base64.split(',')[1];
+                assetsFolder.file(filename, pureBase64, { base64: true });
+            });
+        }
+
+        const content = await zip.generateAsync({ type: "blob" });
+        saveAs(content, `${currentAd.id}.zip`);
+    };
 
     const updatePreview = (ad: GeneratedCreative) => {
         if (ad.files) {
@@ -639,7 +666,10 @@ export function CreativeForm() {
                                 <div className="text-[10px] text-muted-foreground font-mono truncate max-w-[70%]">
                                     Files: {creatives[selectedIndex].files.map(f => f.path).join(', ')}
                                 </div>
-                                <Button size="sm" className="h-8">Download ZIP</Button>
+                                <Button size="sm" className="h-8" onClick={handleDownloadZip}>
+                                    <Download className="mr-2 h-3 w-3" />
+                                    Download ZIP
+                                </Button>
                             </div>
                             {creatives[selectedIndex].meta.notes && creatives[selectedIndex].meta.notes.length > 0 && (
                                 <div className="bg-muted p-2 rounded text-[11px] text-muted-foreground italic">

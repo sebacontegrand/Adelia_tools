@@ -16,6 +16,8 @@ Hard requirements:
 - The HTML must be self-contained and reference local assets under "./assets/".
 - If a provided asset name is missing, use high-quality placeholders.
 - Designs must be "WOW" level: modern, vibrant, and perfectly matched to the color palette and style of the uploaded images.
+- FOR GAMIFIED ADS: Create a real mini-game experience. Include a proper game loop (requestAnimationFrame), collision detection, score, and a clear "Win/Play Again" screen. Use <canvas> or high-performance DOM manipulation.
+- FOR INTERACTIVE/QUIZ ADS: Create multiple steps or slides. Include state transitions, animations between questions, and a customized result based on user choices.
 - THE BACKGROUND IMAGE (if provided via Vision) IS YOUR PRIMARY INSPIRATION: its colors, lighting, composition, and mood must dictate the entire creative direction of the ad.
 - YOU MUST ANALYZE THE UPLOADED IMAGES TO EXTRACT COLOR PALETTES, TYPOGRAPHY STYLE, AND BRAND VIBE.
 - Variations should differ in layout and animation, but all must feel like a natural extension of the uploaded background.
@@ -83,7 +85,9 @@ Deliverables:
 - 3 distinct variations that "WOW" the user. 
 - Use premium color palettes and modern layout techniques (flexbox, grid).
 - Variated headlines and CTAs across the 3 options.
-- If "Gamified": The variations should offer different simple mechanics.
+- FORMAT-SPECIFIC INSTRUCTIONS:
+  - If "Gamified": Each variation must have a different mechanic (e.g., v1: catching items falling, v2: simple shooter, v3: memory game). The code MUST handle the game logic, rendering, and interaction.
+  - If "Interactive": Each variation must have a different flow (e.g., v1: yes/no quiz, v2: personality test, v3: click-to-reveal details). Transition should be smooth.
 - Ensure each variation works perfectly as a standalone preview.`;
 
     console.log("System Prompt:", systemPrompt);
