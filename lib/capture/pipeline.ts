@@ -119,7 +119,7 @@ export async function runCapturePipeline(
         const datePath = date.toISOString().split("T")[0];
         const screenshotFilename = `${section.replace(/\//g, "_") || "portrait"}.png`;
         const storageKey = `captures/${newspaperSlug}/${datePath}/${screenshotFilename}`;
-        await saveFile(storageKey, captured.screenshot);
+        const finalScreenshotKey = await saveFile(storageKey, captured.screenshot);
 
 
 
@@ -127,7 +127,8 @@ export async function runCapturePipeline(
           data: {
             editionId: editionRecord.id,
             pageNumber: i + 1,
-            screenshotKey: storageKey,
+            screenshotKey: finalScreenshotKey,
+
             sourceUrl: url,
             section: section === "/" ? "Portada" : section.replace("/", ""),
             widthPx: captured.widthPx,

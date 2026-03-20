@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { getImageUrl } from "@/lib/utils";
 import {
   CheckCircle,
   XCircle,
   Edit3,
   Loader2,
   ShieldAlert,
-  Eye,
   ChevronLeft,
+
   ChevronRight,
 } from "lucide-react";
+
 
 interface ReviewItem {
   id: string;
@@ -161,10 +163,20 @@ export default function ReviewPage() {
                 className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-5"
               >
                 <div className="flex items-start gap-6">
-                  {/* Ad image placeholder */}
-                  <div className="w-48 h-32 bg-white/10 rounded-lg flex items-center justify-center text-white/20 shrink-0">
-                    <Eye size={32} />
+                  {/* Ad image */}
+                  <div className="w-48 h-32 bg-white/10 rounded-lg flex items-center justify-center overflow-hidden border border-white/10 shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img 
+                      src={getImageUrl(item.adCapture.imageKey)} 
+                      alt={item.adCapture.brand || "Ad"} 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = getImageUrl(null, 'ad');
+                      }}
+                    />
+
                   </div>
+
 
                   {/* Details */}
                   <div className="flex-1 min-w-0">

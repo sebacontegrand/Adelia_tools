@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { getImageUrl } from "@/lib/utils";
 import {
   Search,
   Calendar,
@@ -21,6 +22,7 @@ import {
   XCircle,
 } from "lucide-react";
 import * as XLSX from "xlsx";
+
 
 interface AdCapture {
   id: string;
@@ -396,20 +398,22 @@ export default function AdsPage() {
                           </div>
                         </td>
                         <td className="px-4 py-2">
-                           <div 
-                            className="relative w-12 h-12 group cursor-pointer overflow-hidden rounded-md border border-white/10 bg-white/5 flex items-center justify-center hover:border-violet-500/50 transition-colors" 
-                            onClick={() => setSelectedImage(`/${ad.imageKey}`)}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img 
-                              src={`/${ad.imageKey}`} 
-                              alt={ad.brand || "Ad"} 
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                              onError={(e) => {
-                                // Placeholder for 404
-                                (e.target as HTMLImageElement).src = "https://placehold.co/100x100?text=No+Img";
-                              }}
-                            />
+                            <div 
+                             className="relative w-12 h-12 group cursor-pointer overflow-hidden rounded-md border border-white/10 bg-white/5 flex items-center justify-center hover:border-violet-500/50 transition-colors" 
+                             onClick={() => setSelectedImage(getImageUrl(ad.imageKey))}
+                           >
+                             {/* eslint-disable-next-line @next/next/no-img-element */}
+                             <img 
+                               src={getImageUrl(ad.imageKey)} 
+                               alt={ad.brand || "Ad"} 
+                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                               onError={(e) => {
+                                 // Switch to professional placeholder on error
+                                 (e.target as HTMLImageElement).src = getImageUrl(null, 'ad');
+                               }}
+                             />
+
+
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                               <Search size={14} className="text-white" />
                             </div>
@@ -489,7 +493,11 @@ export default function AdsPage() {
               src={selectedImage} 
               alt="Enlarged Ad" 
               className="w-full h-full object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = getImageUrl(null, 'ad');
+              }}
             />
+
             <button 
               className="absolute top-4 right-4 bg-black/50 text-white rounded-full p-2 hover:bg-black/70 transition-colors"
               onClick={() => setSelectedImage(null)}
