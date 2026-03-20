@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { ScanSearch, Activity } from "lucide-react";
+import { ScanSearch, Activity, BarChart3 } from "lucide-react";
 
 export function Navbar() {
     const pathname = usePathname();
@@ -21,7 +21,15 @@ export function Navbar() {
             icon: Activity,
             disabled: false,
         },
+        {
+            name: "Reports",
+            href: "/reports",
+            icon: BarChart3,
+            disabled: false,
+        },
     ];
+
+
 
     return (
         <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
