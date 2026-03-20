@@ -4,6 +4,8 @@
  */
 
 import { prisma, Prisma } from "../prisma";
+import { saveFile } from "../storage";
+
 
 import { getAdapter } from "./adapters";
 import { capturePage, cropRegion, closeBrowser } from "./capture";
@@ -11,8 +13,9 @@ import { performOcr } from "./ocr";
 import { extractAdMetadata, normalizeSize } from "./extract";
 import { computePerceptualHash, findMostSimilar } from "./dedup";
 import { computeConfidence, getReviewStatus, getReviewReason } from "./confidence";
-import * as fs from "fs/promises";
-import * as path from "path";
+
+
+
 
 export interface PipelineResult {
   newspaperSlug: string;
@@ -115,13 +118,10 @@ export async function runCapturePipeline(
         // Create page record
         const datePath = date.toISOString().split("T")[0];
         const screenshotFilename = `${section.replace(/\//g, "_") || "portrait"}.png`;
-        const storagePath = path.join(process.cwd(), "public", "captures", newspaperSlug, datePath);
         const storageKey = `captures/${newspaperSlug}/${datePath}/${screenshotFilename}`;
+        await saveFile(storageKey, captured.screenshot);
 
-        // Ensure directory exists
-        console.log(`[STORAGE] Saving page to: ${path.join(storagePath, screenshotFilename)}`);
-        await fs.mkdir(storagePath, { recursive: true });
-        await fs.writeFile(path.join(storagePath, screenshotFilename), captured.screenshot);
+
 
         const pageRecord = await prisma.page.create({
           data: {
@@ -211,13 +211,10 @@ export async function runCapturePipeline(
             });
 
             const reviewStatus = getReviewStatus(score);
-            const adDir = path.join(process.cwd(), "public", "ads", newspaperSlug, datePath);
-            const adFilename = `${pHash}.png`;
-            const imageKey = `ads/${newspaperSlug}/${datePath}/${adFilename}`;
-
             // Ensure directory exists and save ad crop
-            await fs.mkdir(adDir, { recursive: true });
-            await fs.writeFile(path.join(adDir, adFilename), adImage);
+            const imageKey = `ads/${newspaperSlug}/${datePath}/${pHash}.png`;
+            await saveFile(imageKey, adImage);
+
 
             // 8. Store
             const adCapture = await prisma.adCapture.create({
