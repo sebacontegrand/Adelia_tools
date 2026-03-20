@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+type GeminiPromptPart = string | { inlineData: { data: string; mimeType: string } };
 
 export async function POST(req: Request) {
   try {
@@ -108,7 +110,7 @@ Deliverables:
       });
 
       // Prepare multi-modal parts
-      const promptParts: any[] = [systemPrompt, userTemplate];
+      const promptParts: GeminiPromptPart[] = [systemPrompt, userTemplate];
 
       // Helper to convert base64 to parts
       const assetToPart = (base64Data: string) => {
@@ -149,8 +151,9 @@ Deliverables:
         try {
           result = await model.generateContent(promptParts);
           break; // Success, exit loop
-        } catch (callError: any) {
-          if (callError.message?.includes('429') || callError.status === 429) {
+        } catch (callError: unknown) {
+          const error = callError as { message?: string; status?: number };
+          if (error.message?.includes('429') || error.status === 429) {
             retryCount++;
             if (retryCount >= maxRetries) throw callError;
 
@@ -180,7 +183,8 @@ Deliverables:
 
       return NextResponse.json(parsedContent);
 
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as { message?: string; status?: number };
       console.error('Error calling Gemini:', error);
 
       if (error.message?.includes('429') || error.status === 429) {

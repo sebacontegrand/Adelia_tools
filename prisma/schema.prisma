@@ -1,0 +1,163 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  engineType      = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Newspaper {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  slug        String       @unique
+  baseUrl     String
+  sourceType  String       @default("web")
+  kioskUrl    String?
+  authConfig  Json?
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  captureJobs CaptureJob[]
+  editions    Edition[]
+
+  @@map("newspapers")
+}
+
+model Edition {
+  id            String    @id @default(uuid())
+  newspaperId   String
+  editionDate   DateTime  @db.Date
+  editionUrl    String?
+  pdfStorageKey String?
+  status        String    @default("pending")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  newspaper     Newspaper @relation(fields: [newspaperId], references: [id], onDelete: Cascade)
+  pages         Page[]
+
+  @@unique([newspaperId, editionDate])
+  @@map("editions")
+}
+
+model Page {
+  id            String      @id @default(uuid())
+  editionId     String
+  pageNumber    Int
+  screenshotKey String
+  sourceUrl     String?
+  section       String?
+  widthPx       Int
+  heightPx      Int
+  createdAt     DateTime    @default(now())
+  adCaptures    AdCapture[]
+  edition       Edition     @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@map("pages")
+}
+
+model AdCapture {
+  id                String            @id @default(uuid())
+  pageId            String
+  campaignId        String?
+  captureDate       DateTime          @db.Date
+  imageKey          String
+  perceptualHash    String?
+  brand             String?
+  campaignName      String?
+  adFormat          String?
+  widthPx           Int
+  heightPx          Int
+  normalizedSize    String?
+  ocrText           String?
+  confidenceScore   Float             @default(0)
+  extractionMethod  String            @default("screenshot")
+  rawExtraction     Json?
+  reviewStatus      String            @default("pending")
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  campaign          AdCampaign?       @relation(fields: [campaignId], references: [id])
+  page              Page              @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  extractedEntities ExtractedEntity[]
+  reviewItems       ReviewItem[]
+
+  @@index([perceptualHash])
+  @@index([captureDate])
+  @@index([reviewStatus])
+  @@index([brand])
+  @@map("ad_captures")
+}
+
+model AdCampaign {
+  id                     String      @id @default(uuid())
+  brand                  String
+  campaignName           String?
+  firstSeenDate          DateTime    @db.Date
+  lastSeenDate           DateTime    @db.Date
+  totalAppearances       Int         @default(1)
+  representativeImageKey String?
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+  adCaptures             AdCapture[]
+
+  @@index([brand])
+  @@map("ad_campaigns")
+}
+
+model ExtractedEntity {
+  id          String    @id @default(uuid())
+  adCaptureId String
+  entityType  String
+  value       String
+  confidence  Float     @default(0)
+  createdAt   DateTime  @default(now())
+  adCapture   AdCapture @relation(fields: [adCaptureId], references: [id], onDelete: Cascade)
+
+  @@map("extracted_entities")
+}
+
+model ReviewItem {
+  id          String    @id @default(uuid())
+  adCaptureId String
+  reason      String
+  status      String    @default("pending")
+  reviewedBy  String?
+  corrections Json?
+  reviewedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  adCapture   AdCapture @relation(fields: [adCaptureId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("review_items")
+}
+
+model CaptureJob {
+  id            String          @id @default(uuid())
+  newspaperId   String
+  targetDate    DateTime        @db.Date
+  status        String          @default("queued")
+  adsFound      Int             @default(0)
+  adsReviewed   Int             @default(0)
+  avgConfidence Float           @default(0)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime        @default(now())
+  logs          CaptureJobLog[]
+  newspaper     Newspaper       @relation(fields: [newspaperId], references: [id], onDelete: Cascade)
+
+  @@unique([newspaperId, targetDate])
+  @@map("capture_jobs")
+}
+
+model CaptureJobLog {
+  id        String     @id @default(uuid())
+  jobId     String
+  level     String
+  message   String
+  metadata  Json?
+  createdAt DateTime   @default(now())
+  job       CaptureJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("capture_job_logs")
+}

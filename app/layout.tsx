@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Adelia AI - HTML5 Creative Generator",
-  description: "Generate high-quality HTML5 ads with AI",
+  title: "Scrapping news - Ad Monitor & Pipeline",
+  description: "Monitor and manage your ad capture pipeline",
 };
 
 export default function RootLayout({

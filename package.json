@@ -1,5 +1,5 @@
 {
-  "name": "adelia_html_ai_generator",
+  "name": "htmlai",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,8 +9,11 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@google-cloud/vision": "^5.3.4",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^5.2.2",
+    "@prisma/adapter-pg": "^7.5.0",
+    "@prisma/client": "^7.5.0",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-select": "^2.2.6",
@@ -18,16 +21,23 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@types/file-saver": "^2.0.7",
     "@types/jszip": "^3.4.0",
+    "bullmq": "^5.71.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "file-saver": "^2.0.5",
+    "imghash": "^1.1.2",
+    "ioredis": "^5.10.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.563.0",
     "next": "16.1.4",
+    "pg": "^8.20.0",
+    "playwright": "^1.58.2",
+    "prisma": "^7.5.0",
     "puppeteer-core": "^24.36.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.71.1",
+    "sharp": "^0.34.5",
     "tailwind-merge": "^3.4.0",
     "xlsx": "^0.18.5",
     "zod": "^4.3.6"
@@ -35,6 +45,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.18.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",

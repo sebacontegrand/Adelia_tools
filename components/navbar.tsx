@@ -3,22 +3,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutGrid, ScanSearch } from "lucide-react";
+import { ScanSearch, Activity } from "lucide-react";
 
 export function Navbar() {
     const pathname = usePathname();
 
     const navItems = [
         {
-            name: "HTML AI Generator",
-            href: "/generator",
-            icon: LayoutGrid,
+            name: "Dashboard",
+            href: "/ads",
+            icon: ScanSearch,
             disabled: false,
         },
         {
-            name: "AdScraping",
-            href: "/scraping",
-            icon: ScanSearch,
+            name: "Pipeline",
+            href: "/jobs",
+            icon: Activity,
             disabled: false,
         },
     ];
@@ -27,8 +27,8 @@ export function Navbar() {
         <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="container flex h-14 items-center px-4">
                 <Link href="/" className="mr-6 flex items-center space-x-2">
-                    <span className="font-bold text-lg hidden md:inline-block">
-                        Adelia AI
+                    <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
+                        Scrapping news
                     </span>
                 </Link>
                 <nav className="flex items-center space-x-6 text-sm font-medium">
