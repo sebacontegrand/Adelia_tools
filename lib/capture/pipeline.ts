@@ -3,8 +3,8 @@
  * Coordinates the full end-to-end capture pipeline for a single newspaper.
  */
 
-import { Prisma } from "@prisma/client";
-import { prisma } from "../prisma";
+import { prisma, Prisma } from "../prisma";
+
 import { getAdapter } from "./adapters";
 import { capturePage, cropRegion, closeBrowser } from "./capture";
 import { performOcr } from "./ocr";
