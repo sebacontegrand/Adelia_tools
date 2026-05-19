@@ -10,6 +10,8 @@ import {
   RefreshCw,
   StopCircle,
   Trash2,
+  FileText,
+  X,
 } from "lucide-react";
 
 interface CaptureJob {
@@ -29,6 +31,10 @@ interface CaptureJob {
 export default function JobsPage() {
   const [jobs, setJobs] = useState<CaptureJob[]>([]);
   const [loading, setLoading] = useState(false);
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsJobId, setLogsJobId] = useState<string | null>(null);
+  const [logs, setLogs] = useState<{ id: string; level: string; message: string; createdAt: string }[]>([]);
 
   const fetchJobs = useCallback(async () => {
     setLoading(true);
@@ -68,6 +74,22 @@ export default function JobsPage() {
     }
   };
 
+  const openLogs = async (id: string) => {
+    setLogsOpen(true);
+    setLogsJobId(id);
+    setLogsLoading(true);
+    try {
+      const res = await fetch(`/api/capture/${id}/logs?limit=200`);
+      const data = await res.json();
+      setLogs(data.logs || []);
+    } catch (error) {
+      console.error("Failed to fetch logs:", error);
+      setLogs([]);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
@@ -82,6 +104,8 @@ export default function JobsPage() {
         return <Loader2 className="text-blue-400 animate-spin" size={16} />;
       case "queued":
         return <Clock className="text-amber-400" size={16} />;
+      case "cancelled":
+        return <StopCircle className="text-white/40" size={16} />;
       default:
         return <Clock className="text-white/40" size={16} />;
     }
@@ -93,6 +117,7 @@ export default function JobsPage() {
       failed: "bg-red-500/20 text-red-400",
       running: "bg-blue-500/20 text-blue-400",
       queued: "bg-amber-500/20 text-amber-400",
+      cancelled: "bg-white/10 text-white/50",
     };
     return (
       <span className={`px-2 py-0.5 rounded-full text-xs ${colors[status] || "bg-white/10 text-white/50"}`}>
@@ -155,6 +180,48 @@ export default function JobsPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-6">
+        {logsOpen && (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="w-full max-w-3xl bg-gray-950 border border-white/10 rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                <div className="flex items-center gap-2 text-sm">
+                  <FileText size={16} className="text-white/60" />
+                  <span className="text-white/80">Logs</span>
+                  <span className="text-white/30 font-mono text-xs">{logsJobId}</span>
+                </div>
+                <button
+                  onClick={() => setLogsOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-white/70"
+                  title="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="max-h-[70vh] overflow-auto">
+                {logsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="animate-spin text-white/40" size={28} />
+                  </div>
+                ) : logs.length === 0 ? (
+                  <div className="py-10 text-center text-white/40 text-sm">No logs</div>
+                ) : (
+                  <div className="p-4 space-y-2">
+                    {logs.map((l) => (
+                      <div key={l.id} className="text-xs font-mono border border-white/10 rounded-lg px-3 py-2">
+                        <div className="flex items-center justify-between gap-3 text-white/60">
+                          <span className="uppercase">{l.level}</span>
+                          <span>{new Date(l.createdAt).toLocaleString()}</span>
+                        </div>
+                        <div className="mt-1 text-white/80 whitespace-pre-wrap">{l.message}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="animate-spin text-white/40" size={32} />
@@ -206,7 +273,14 @@ export default function JobsPage() {
                       {getDuration(job.startedAt, job.completedAt)}
                     </td>
                     <td className="px-4 py-3 text-right text-white/40">
-                      {job._count.logs}
+                      <button
+                        onClick={() => openLogs(job.id)}
+                        className="inline-flex items-center gap-2 px-2 py-1 rounded-md hover:bg-white/10 transition-colors"
+                        title="View Logs"
+                      >
+                        <FileText size={14} className="text-white/50" />
+                        <span>{job._count.logs}</span>
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">

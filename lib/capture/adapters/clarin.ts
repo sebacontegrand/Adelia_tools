@@ -24,7 +24,6 @@ export class ClarinAdapter extends NewspaperAdapter {
   async discoverEdition(date: Date): Promise<EditionInfo> {
     // Clarín has a digital kiosk at kiosco.clarin.com
     // For now, scrape the web version
-    const dateStr = date.toISOString().split("T")[0];
     return {
       type: "web",
       url: this.baseUrl,

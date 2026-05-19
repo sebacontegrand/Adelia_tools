@@ -59,26 +59,34 @@ model Page {
 
 model AdCapture {
   id                String            @id @default(uuid())
-  pageId            String
+  pageId            String?           // Optional: from page-based capture
   campaignId        String?
   captureDate       DateTime          @db.Date
-  imageKey          String
-  perceptualHash    String?
-  brand             String?
+  imageKey          String?           // Optional: Jina doesn't capture images
+  perceptualHash    String?           // Optional: Jina has no image
+  brand             String
+  product           String?           // NEW: Product being advertised
   campaignName      String?
-  adFormat          String?
-  widthPx           Int
-  heightPx          Int
+  cta               String?           // NEW: Call-to-action text
+  landing_domain    String?           // NEW: Landing domain/URL
+  adFormat          String?           // image|video|native|text|carousel
+  widthPx           Int?              // Optional: for non-visual ads
+  heightPx          Int?
   normalizedSize    String?
   ocrText           String?
   confidenceScore   Float             @default(0)
-  extractionMethod  String            @default("screenshot")
+  extractionMethod  String            @default("screenshot") // screenshot|jina|google_ads
+  platform          String?           // NEW: "clarín", "infobae", etc.
+  source_url        String?           // NEW: Full source URL
+  first_seen        DateTime          @db.Date @default(now()) // NEW: First seen date
+  last_seen         DateTime          @db.Date @default(now()) // NEW: Last seen date
+  occurrences       Int               @default(1) // NEW: How many times seen
   rawExtraction     Json?
   reviewStatus      String            @default("pending")
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   campaign          AdCampaign?       @relation(fields: [campaignId], references: [id])
-  page              Page              @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  page              Page?             @relation(fields: [pageId], references: [id], onDelete: SetNull)
   extractedEntities ExtractedEntity[]
   reviewItems       ReviewItem[]
 
@@ -86,6 +94,10 @@ model AdCapture {
   @@index([captureDate])
   @@index([reviewStatus])
   @@index([brand])
+  @@index([extractionMethod])
+  @@index([platform])
+  @@index([first_seen, last_seen])
+  @@index([landing_domain])
   @@map("ad_captures")
 }
 

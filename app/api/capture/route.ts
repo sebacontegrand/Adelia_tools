@@ -7,25 +7,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { runCapturePipeline } from "@/lib/capture/pipeline";
+import { runJinaPipeline } from "@/lib/capture/pipeline-jina";
 import { getAvailableAdapters } from "@/lib/capture/adapters";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { slug, date: dateStr } = body;
+    const { slug, date: dateStr, method } = body as {
+      slug?: string;
+      date?: string;
+      method?: "screenshot" | "jina";
+    };
 
     const date = dateStr ? new Date(dateStr) : new Date();
     date.setHours(0, 0, 0, 0);
+
+    const captureMethod: "screenshot" | "jina" = method === "jina" ? "jina" : "screenshot";
+    const runner = captureMethod === "jina" ? runJinaPipeline : runCapturePipeline;
 
     if (slug === "all") {
       // Capture all newspapers in parallel
       const adapters = getAvailableAdapters();
       const results = await Promise.allSettled(
-        adapters.map((s) => runCapturePipeline(s, date))
+        adapters.map((s) => runner(s, date))
       );
 
       const summary = results.map((result, i) => ({
         slug: adapters[i],
+        method: captureMethod,
         status: result.status,
         ...(result.status === "fulfilled"
           ? {
@@ -39,8 +48,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, results: summary });
     } else if (slug) {
       // Capture single newspaper
-      const result = await runCapturePipeline(slug, date);
-      return NextResponse.json({ success: true, result });
+      const result = await runner(slug, date);
+      return NextResponse.json({ success: true, method: captureMethod, result });
     } else {
       return NextResponse.json(
         { error: "Missing 'slug' parameter. Use a newspaper slug or 'all'." },

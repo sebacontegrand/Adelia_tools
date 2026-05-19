@@ -15,25 +15,47 @@ export async function GET(request: NextRequest) {
     const newspaper = searchParams.get("newspaper");
     const status = searchParams.get("status");
     const search = searchParams.get("search");
-    const sortField = searchParams.get("sortField") || "createdAt";
+    const platform = searchParams.get("platform"); // NEW: Filter by platform
+    const format = searchParams.get("format"); // NEW: Filter by ad format
+    const landingDomain = searchParams.get("landing_domain"); // NEW: Filter by landing domain
+    const from = searchParams.get("from"); // NEW: Start date (YYYY-MM-DD)
+    const to = searchParams.get("to"); // NEW: End date (YYYY-MM-DD)
+    const sortField = searchParams.get("sortField") || "first_seen";
     const sortOrder = (searchParams.get("sortOrder") as "asc" | "desc") || "desc";
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "50");
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 200);
 
     // Build where clause
     const where: Prisma.AdCaptureWhereInput = {};
 
+    // Legacy support: captureDate
     if (date) {
       const d = new Date(date);
       d.setHours(0, 0, 0, 0);
       where.captureDate = d;
     }
 
+    // NEW: Date range filtering using first_seen
+    if (from || to) {
+      where.first_seen = {};
+      if (from) {
+        const fromDate = new Date(from);
+        where.first_seen.gte = fromDate;
+      }
+      if (to) {
+        const toDate = new Date(to);
+        toDate.setHours(23, 59, 59, 999);
+        where.first_seen.lte = toDate;
+      }
+    }
+
     if (search) {
       where.OR = [
         { brand: { contains: search, mode: "insensitive" } },
+        { product: { contains: search, mode: "insensitive" } },
         { campaignName: { contains: search, mode: "insensitive" } },
         { ocrText: { contains: search, mode: "insensitive" } },
+        { cta: { contains: search, mode: "insensitive" } },
       ];
     } else if (brand) {
       where.brand = { contains: brand, mode: "insensitive" };
@@ -41,6 +63,21 @@ export async function GET(request: NextRequest) {
 
     if (status) {
       where.reviewStatus = status;
+    }
+
+    // NEW: Platform filter
+    if (platform) {
+      where.platform = { contains: platform, mode: "insensitive" };
+    }
+
+    // NEW: Format filter
+    if (format) {
+      where.adFormat = format;
+    }
+
+    // NEW: Landing domain filter
+    if (landingDomain) {
+      where.landing_domain = { contains: landingDomain, mode: "insensitive" };
     }
 
     if (newspaper) {

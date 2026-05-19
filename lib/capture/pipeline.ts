@@ -9,10 +9,10 @@ import { saveFile } from "../storage";
 
 import { getAdapter } from "./adapters";
 import { capturePage, cropRegion, closeBrowser } from "./capture";
-import { performOcr } from "./ocr";
-import { extractAdMetadata, normalizeSize } from "./extract";
+import { analyzeAdImage, normalizeSize } from "./extract";
 import { computePerceptualHash, findMostSimilar } from "./dedup";
-import { computeConfidence, getReviewStatus, getReviewReason } from "./confidence";
+import { computeConfidence, getReviewStatus, getReviewReason, type ConfidenceFactors } from "./confidence";
+import { isGeminiRateLimitError } from "@/lib/ai/gemini";
 
 
 
@@ -24,6 +24,16 @@ export interface PipelineResult {
   avgConfidence: number;
   errors: string[];
   cancelled?: boolean;
+}
+
+function safeDomain(input: string | null): string | null {
+  if (!input) return null;
+  try {
+    const url = input.includes("://") ? new URL(input) : new URL(`https://${input}`);
+    return url.hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return input.toLowerCase().trim();
+  }
 }
 
 /**
@@ -39,10 +49,19 @@ export async function runCapturePipeline(
   let adsFound = 0;
 
   // Find the newspaper in DB
-  const newspaper = await prisma.newspaper.findUnique({
-    where: { slug: newspaperSlug },
-  });
-  if (!newspaper) throw new Error(`Newspaper not found: ${newspaperSlug}`);
+  const newspaper =
+    (await prisma.newspaper.findUnique({
+      where: { slug: newspaperSlug },
+    })) ||
+    (await prisma.newspaper.create({
+      data: {
+        name: adapter.name,
+        slug: adapter.slug,
+        baseUrl: adapter.baseUrl,
+        sourceType: "web",
+        active: true,
+      },
+    }));
 
   // Create capture job
   const job = await prisma.captureJob.upsert({
@@ -62,6 +81,9 @@ export async function runCapturePipeline(
   });
 
   await logJob(job.id, "info", `Starting capture for ${adapter.name}`);
+
+  const skipGemini = process.env.CAPTURE_SKIP_GEMINI === "1" || process.env.CAPTURE_SKIP_GEMINI === "true";
+  let geminiRateLimited = false;
 
   try {
     // 1. Discover edition
@@ -114,6 +136,8 @@ export async function runCapturePipeline(
         await logJob(job.id, "info", `Capturing section: ${section} (${url})`);
         
         const captured = await capturePage(url, section, adapter.config);
+        const maxRegions = Math.max(1, Number(process.env.MAX_AD_REGIONS_PER_PAGE || "8"));
+        const regions = captured.adRegions.slice(0, maxRegions);
 
         // Create page record
         const datePath = date.toISOString().split("T")[0];
@@ -139,11 +163,11 @@ export async function runCapturePipeline(
         await logJob(
           job.id,
           "info",
-          `Page captured: ${captured.widthPx}x${captured.heightPx}, ${captured.adRegions.length} ad regions`
+          `Page captured: ${captured.widthPx}x${captured.heightPx}, ${captured.adRegions.length} ad regions (processing ${regions.length})`
         );
 
         // 3. Process each ad region
-        for (const region of captured.adRegions) {
+        for (const region of regions) {
           // Check for cancellation within ad region loop too
           if (adsFound % 5 === 0) { // Check every 5 ads to avoid too many DB calls
             const jobCheck = await prisma.captureJob.findUnique({ where: { id: job.id } });
@@ -157,23 +181,55 @@ export async function runCapturePipeline(
             // Crop ad image
             const adImage = await cropRegion(captured.screenshot, region);
 
-            // 4. OCR
-            const ocrResult = await performOcr(adImage);
-
-            // 5. Structured extraction
-            const extraction = await extractAdMetadata(ocrResult.text, adImage, {
-              source: adapter.name,
-              section,
-              width: region.width,
-              height: region.height,
-            });
-
-            // 6. Perceptual hash & dedup
+            // Compute hash and persist image regardless of AI availability.
             const pHash = await computePerceptualHash(adImage);
+            const imageKey = `ads/${newspaperSlug}/${datePath}/${pHash}.png`;
+            await saveFile(imageKey, adImage);
+
+            // AI analysis (OCR+extraction) – can be disabled or rate-limited.
+            let ocrResult: { text: string; confidence: number; language: string } | null = null;
+            let extraction:
+              | {
+                  brand: string;
+                  product: string;
+                  campaignName: string;
+                  adFormat: string;
+                  cta: string | null;
+                  price: string | null;
+                  url: string | null;
+                  phone: string | null;
+                  entities: { type: string; value: string; confidence: number }[];
+                  confidence: number;
+                }
+              | null = null;
+
+            if (!skipGemini && !geminiRateLimited) {
+              try {
+                const analysis = await analyzeAdImage(adImage, {
+                  source: adapter.name,
+                  section,
+                  width: region.width,
+                  height: region.height,
+                });
+                ocrResult = analysis.ocr;
+                extraction = analysis.extraction;
+              } catch (aiError) {
+                if (isGeminiRateLimitError(aiError)) {
+                  geminiRateLimited = true;
+                  await logJob(job.id, "warn", "Gemini rate-limited; storing remaining captures without AI extraction");
+                }
+                await logJob(
+                  job.id,
+                  "warn",
+                  `AI analysis failed; storing raw capture (reason: ${aiError instanceof Error ? aiError.message : String(aiError)})`
+                );
+              }
+            }
+
             const similar = findMostSimilar(pHash, hashList);
             
             let campaignId: string | null = null;
-            if (similar) {
+            if (similar && extraction && extraction.brand && extraction.brand !== "Unknown") {
               // Link to existing campaign
               const existingAd = existingHashes.find((h: { id: string; perceptualHash: string | null; campaignId: string | null }) => h.id === similar.id);
               campaignId = existingAd?.campaignId || null;
@@ -189,7 +245,7 @@ export async function runCapturePipeline(
               }
             }
 
-            if (!campaignId) {
+            if (!campaignId && extraction && extraction.brand && extraction.brand !== "Unknown") {
               // Create new campaign
               const campaign = await prisma.adCampaign.create({
                 data: {
@@ -204,18 +260,20 @@ export async function runCapturePipeline(
               campaignId = campaign.id;
             }
 
-            // 7. Confidence scoring
-            const { score, factors } = computeConfidence(ocrResult, extraction, {
-              isKnownCampaign: similar !== null,
-              width: region.width,
-              height: region.height,
-            });
-
-            const reviewStatus = getReviewStatus(score);
-            // Ensure directory exists and save ad crop
-            const imageKey = `ads/${newspaperSlug}/${datePath}/${pHash}.png`;
-            await saveFile(imageKey, adImage);
-
+            // Confidence/review status
+            let score = 0;
+            let factors: ConfidenceFactors | null = null;
+            let reviewStatus: "auto_approved" | "pending" = "pending";
+            if (ocrResult && extraction) {
+              const computed = computeConfidence(ocrResult, extraction, {
+                isKnownCampaign: similar !== null,
+                width: region.width,
+                height: region.height,
+              });
+              score = computed.score;
+              factors = computed.factors;
+              reviewStatus = getReviewStatus(score);
+            }
 
             // 8. Store
             const adCapture = await prisma.adCapture.create({
@@ -225,38 +283,51 @@ export async function runCapturePipeline(
                 captureDate: date,
                 imageKey,
                 perceptualHash: pHash,
-                brand: extraction.brand,
-                campaignName: extraction.campaignName || null,
-                adFormat: extraction.adFormat,
+                brand: extraction?.brand || "Unknown",
+                product: extraction?.product || null,
+                campaignName: extraction?.campaignName || null,
+                cta: extraction?.cta ?? null,
+                landing_domain: safeDomain(extraction?.url ?? null),
+                adFormat: extraction?.adFormat ?? null,
                 widthPx: region.width,
                 heightPx: region.height,
                 normalizedSize: normalizeSize(region.width, region.height),
-                ocrText: ocrResult.text,
+                ocrText: ocrResult?.text || null,
                 confidenceScore: score,
                 extractionMethod: "screenshot",
+                platform: newspaperSlug,
+                source_url: url,
+                first_seen: date,
+                last_seen: date,
+                occurrences: 1,
                 rawExtraction: JSON.parse(JSON.stringify({
                   ocr: ocrResult,
                   extraction,
-                  factors,
+                  factors: factors ?? undefined,
+                  aiSkipped: skipGemini,
+                  aiRateLimited: geminiRateLimited,
                 })),
                 reviewStatus,
               },
             });
 
             // Store extracted entities
-            for (const entity of extraction.entities) {
-              await prisma.extractedEntity.create({
-                data: {
-                  adCaptureId: adCapture.id,
-                  entityType: entity.type,
-                  value: entity.value,
-                  confidence: entity.confidence,
-                },
-              });
+            if (extraction?.entities) {
+              for (const entity of extraction.entities) {
+                await prisma.extractedEntity.create({
+                  data: {
+                    adCaptureId: adCapture.id,
+                    entityType: entity.type,
+                    value: entity.value,
+                    confidence: entity.confidence,
+                  },
+                });
+              }
             }
 
             // Queue for review if needed
-            const reviewReason = getReviewReason(score, factors);
+            const reviewReason =
+              ocrResult && extraction && factors ? getReviewReason(score, factors) : "ai_unavailable";
             if (reviewReason) {
               await prisma.reviewItem.create({
                 data: {
@@ -275,7 +346,7 @@ export async function runCapturePipeline(
             await logJob(
               job.id,
               "info",
-              `Ad captured: ${extraction.brand} - ${extraction.adFormat} (confidence: ${score})`
+              `Ad captured: ${extraction?.brand || "Unknown"} - ${extraction?.adFormat || normalizeSize(region.width, region.height)} (confidence: ${score})`
             );
           } catch (adError) {
             const msg = adError instanceof Error ? adError.message : String(adError);

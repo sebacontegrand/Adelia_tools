@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, Prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
+
+function countId(row: unknown): number {
+  if (!row || typeof row !== "object") return 0;
+  if (!("_count" in row)) return 0;
+  const count = (row as { _count?: unknown })._count;
+  if (!count || typeof count !== "object") return 0;
+  if (!("id" in count)) return 0;
+  const id = (count as { id?: unknown }).id;
+  return typeof id === "number" ? id : 0;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,17 +31,10 @@ export async function GET(request: NextRequest) {
     // 1. Brand Leaderboard (Top 10 brands)
     const brandLeaderboard = await prisma.adCapture.groupBy({
       by: ["brand"],
-      where: { captureDate: targetDate, brand: { not: null } },
+      where: { captureDate: targetDate, brand: { not: "" } },
       _count: { id: true },
       orderBy: { _count: { id: "desc" } },
       take: 10,
-    });
-
-    // 2. Newspaper Breakdown
-    const newspaperStats = await prisma.adCapture.groupBy({
-      by: ["pageId"],
-      where: { captureDate: targetDate },
-      _count: { id: true },
     });
 
     // We need to resolve newspaper names for the stats
@@ -66,19 +69,19 @@ export async function GET(request: NextRequest) {
     // 3. Overall Stats
     const totalStats = await prisma.adCapture.aggregate({
       where: { captureDate: targetDate },
-      _count: { id: true },
+      _count: { _all: true },
       _avg: { confidenceScore: true },
     });
 
     return NextResponse.json({
       date: targetDate.toISOString().split("T")[0],
-      totalAds: totalStats._count.id,
+      totalAds: totalStats._count._all,
       avgConfidence: totalStats._avg.confidenceScore 
         ? Math.round(totalStats._avg.confidenceScore * 100) / 100 
         : 0,
       brandLeaderboard: brandLeaderboard.map((b) => ({
         brand: b.brand,
-        count: b._count.id,
+        count: countId(b),
       })),
       newspaperSummary,
     });

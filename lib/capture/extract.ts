@@ -3,7 +3,8 @@
  * Extracts advertising metadata (brand, product, format, etc.) from OCR text + image.
  */
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { geminiGenerateText } from "@/lib/ai/gemini";
+import type { OcrResult } from "./ocr";
 
 export interface AdExtraction {
   brand: string;
@@ -18,32 +19,38 @@ export interface AdExtraction {
   confidence: number;
 }
 
+export interface AdImageAnalysis {
+  ocr: OcrResult;
+  extraction: AdExtraction;
+}
+
+function safeJsonParse(text: string) {
+  const cleaned = text
+    .replace(/```json\n?/g, "")
+    .replace(/```\n?/g, "")
+    .trim();
+  return JSON.parse(cleaned) as unknown;
+}
+
 /**
- * Extract structured ad metadata from OCR text and the original image.
+ * Single-shot analysis: OCR + structured extraction from the ad image.
+ * This avoids two separate Gemini calls per ad region.
  */
-export async function extractAdMetadata(
-  ocrText: string,
+export async function analyzeAdImage(
   imageBuffer: Buffer,
   context: { source: string; section?: string; width: number; height: number }
-): Promise<AdExtraction> {
+): Promise<AdImageAnalysis> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
-
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const imageBase64 = imageBuffer.toString("base64");
 
   const prompt = `You are an expert advertising analyst specializing in Argentinian media.
-Analyze this advertisement image along with its OCR text. The ad was found on ${context.source}${context.section ? ` in the "${context.section}" section` : ""}.
+Analyze this advertisement image. The ad was found on ${context.source}${context.section ? ` in the "${context.section}" section` : ""}.
 The image dimensions are ${context.width}x${context.height} pixels.
 
-OCR Text extracted from the ad:
-"""
-${ocrText}
-"""
-
-Extract the following information:
+First, extract ALL visible text from the image (preserve line breaks) and provide an OCR confidence (0.0-1.0).
+Then extract the following structured information:
 1. **Brand**: The company or brand advertising (e.g., "Coca-Cola", "Personal", "YPF")
 2. **Product**: What specific product or service is being advertised
 3. **Campaign Name**: The campaign or promotion name if visible (e.g., "Cyber Monday", "Sale de Temporada")
@@ -64,6 +71,9 @@ Extract the following information:
 
 Return your response as JSON (no markdown):
 {
+  "ocrText": "string",
+  "ocrConfidence": 0.85,
+  "language": "es",
   "brand": "string",
   "product": "string", 
   "campaignName": "string or empty",
@@ -76,52 +86,74 @@ Return your response as JSON (no markdown):
   "confidence": 0.0-1.0
 }`;
 
-  const result = await model.generateContent([
-    {
-      inlineData: {
-        mimeType: "image/png",
-        data: imageBase64,
+  const response = await geminiGenerateText({
+    apiKey,
+    model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
+    parts: [
+      {
+        inlineData: {
+          mimeType: "image/png",
+          data: imageBase64,
+        },
       },
-    },
-    { text: prompt },
-  ]);
-
-  const response = result.response.text();
+      { text: prompt },
+    ],
+  });
 
   try {
-    const cleaned = response
-      .replace(/```json\n?/g, "")
-      .replace(/```\n?/g, "")
-      .trim();
-    const parsed = JSON.parse(cleaned);
+    const parsed = safeJsonParse(response) as Record<string, unknown>;
 
-    return {
-      brand: parsed.brand || "Unknown",
-      product: parsed.product || "Unknown",
-      campaignName: parsed.campaignName || "",
-      adFormat: parsed.adFormat || classifyAdFormat(context.width, context.height),
-      cta: parsed.cta || null,
-      price: parsed.price || null,
-      url: parsed.url || null,
-      phone: parsed.phone || null,
-      entities: Array.isArray(parsed.entities) ? parsed.entities : [],
+    const extraction: AdExtraction = {
+      brand: (parsed.brand as string) || "Unknown",
+      product: (parsed.product as string) || "Unknown",
+      campaignName: (parsed.campaignName as string) || "",
+      adFormat: (parsed.adFormat as string) || classifyAdFormat(context.width, context.height),
+      cta: (parsed.cta as string) || null,
+      price: (parsed.price as string) || null,
+      url: (parsed.url as string) || null,
+      phone: (parsed.phone as string) || null,
+      entities: Array.isArray(parsed.entities) ? (parsed.entities as AdExtraction["entities"]) : [],
       confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
     };
+
+    const ocr: OcrResult = {
+      text: typeof parsed.ocrText === "string" ? parsed.ocrText : "",
+      confidence: typeof parsed.ocrConfidence === "number" ? parsed.ocrConfidence : extraction.confidence,
+      language: typeof parsed.language === "string" ? parsed.language : "es",
+    };
+
+    return { ocr, extraction };
   } catch {
     console.error("[Extract] Failed to parse Gemini response:", response.substring(0, 200));
     return {
-      brand: "Unknown",
-      product: "Unknown",
-      campaignName: "",
-      adFormat: classifyAdFormat(context.width, context.height),
-      cta: null,
-      price: null,
-      url: null,
-      phone: null,
-      entities: [],
-      confidence: 0.2,
+      ocr: { text: "", confidence: 0.2, language: "es" },
+      extraction: {
+        brand: "Unknown",
+        product: "Unknown",
+        campaignName: "",
+        adFormat: classifyAdFormat(context.width, context.height),
+        cta: null,
+        price: null,
+        url: null,
+        phone: null,
+        entities: [],
+        confidence: 0.2,
+      },
     };
   }
+}
+
+/**
+ * Back-compat: existing call sites can still pass OCR text.
+ * (We ignore OCR text and do a single-shot image analysis.)
+ */
+export async function extractAdMetadata(
+  _ocrText: string,
+  imageBuffer: Buffer,
+  context: { source: string; section?: string; width: number; height: number }
+): Promise<AdExtraction> {
+  const analysis = await analyzeAdImage(imageBuffer, context);
+  return analysis.extraction;
 }
 
 /**
