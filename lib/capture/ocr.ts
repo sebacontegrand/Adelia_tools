@@ -4,6 +4,7 @@
  */
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { DEFAULT_GEMINI_MODEL } from "@/lib/ai/gemini";
 
 export interface OcrResult {
   text: string;
@@ -20,7 +21,7 @@ export async function performOcr(imageBuffer: Buffer): Promise<OcrResult> {
   if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL });
 
   const imageBase64 = imageBuffer.toString("base64");
 

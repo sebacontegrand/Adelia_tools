@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import puppeteerCore, { Browser } from "puppeteer-core";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { DEFAULT_GEMINI_MODEL } from "@/lib/ai/gemini";
 
 interface AdSlot {
     width: number;
@@ -104,7 +105,7 @@ async function scrapeWithJina(url: string): Promise<DetectedAd[]> {
 // Gemini Analysis: Extract ads from page content
 // ─────────────────────────────────────────
 async function analyzeContentWithGemini(pageContent: string, url: string): Promise<DetectedAd[]> {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL });
     const prompt = `You are an expert advertising analyst. Analyze this webpage content from the Argentinian newspaper at ${url}.
 
 Your task is to identify ALL advertisements, sponsored content, and promotional material on the page.
@@ -277,7 +278,7 @@ async function scrapeWithPuppeteer(url: string): Promise<DetectedAd[]> {
                     encoding: "base64"
                 });
 
-                const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+                const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL });
                 const promptText = `Analyze this image which is a visual advertisement captured from ${url}. 
                 Identify:
                 1. Brand Name (e.g. Nike, Coca-Cola).

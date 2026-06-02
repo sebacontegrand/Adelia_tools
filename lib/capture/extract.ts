@@ -3,7 +3,7 @@
  * Extracts advertising metadata (brand, product, format, etc.) from OCR text + image.
  */
 
-import { geminiGenerateText } from "@/lib/ai/gemini";
+import { geminiGenerateText, DEFAULT_GEMINI_MODEL } from "@/lib/ai/gemini";
 import type { OcrResult } from "./ocr";
 
 export interface AdExtraction {
@@ -88,7 +88,7 @@ Return your response as JSON (no markdown):
 
   const response = await geminiGenerateText({
     apiKey,
-    model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
+    model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
     parts: [
       {
         inlineData: {

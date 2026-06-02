@@ -3,7 +3,7 @@
  * Respects robots.txt and rate limits. Cost: ~$0.50 per 100 requests.
  */
 
-import { geminiGenerateText } from "@/lib/ai/gemini";
+import { geminiGenerateText, DEFAULT_GEMINI_MODEL } from "@/lib/ai/gemini";
 
 export interface JinaResult {
   content: string;
@@ -112,7 +112,7 @@ CRITICAL:
   try {
     const text = await geminiGenerateText({
       apiKey,
-      model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
+      model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
       parts: prompt,
     });
 

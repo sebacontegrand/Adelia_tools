@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { DEFAULT_GEMINI_MODEL } from '@/lib/ai/gemini';
 
 type GeminiPromptPart = string | { inlineData: { data: string; mimeType: string } };
 
@@ -103,7 +104,7 @@ Deliverables:
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
+        model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
         generationConfig: {
           responseMimeType: "application/json",
         }
