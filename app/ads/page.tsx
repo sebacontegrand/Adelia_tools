@@ -20,6 +20,7 @@ import {
   ChevronUp,
   ChevronDown,
   XCircle,
+  ExternalLink,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -31,6 +32,7 @@ interface AdCapture {
   brand: string | null;
   campaignName: string | null;
   adFormat: string | null;
+  source_url: string | null;
   widthPx: number;
   heightPx: number;
   normalizedSize: string | null;
@@ -398,26 +400,38 @@ export default function AdsPage() {
                           </div>
                         </td>
                         <td className="px-4 py-2">
+                          {ad.imageKey ? (
                             <div 
                              className="relative w-12 h-12 group cursor-pointer overflow-hidden rounded-md border border-white/10 bg-white/5 flex items-center justify-center hover:border-violet-500/50 transition-colors" 
                              onClick={() => setSelectedImage(getImageUrl(ad.imageKey))}
                            >
-                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                             <img 
-                               src={getImageUrl(ad.imageKey)} 
-                               alt={ad.brand || "Ad"} 
-                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                               onError={(e) => {
-                                 // Switch to professional placeholder on error
-                                 (e.target as HTMLImageElement).src = getImageUrl(null, 'ad');
-                               }}
-                             />
-
-
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img 
+                                src={getImageUrl(ad.imageKey)} 
+                                alt={ad.brand || "Ad"} 
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = getImageUrl(null, 'ad');
+                                }}
+                              />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                               <Search size={14} className="text-white" />
                             </div>
                            </div>
+                          ) : (
+                            <a
+                              href={ad.source_url || "#"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="relative w-12 h-12 group flex flex-col items-center justify-center rounded-md border border-white/10 bg-violet-500/10 hover:bg-violet-500/20 hover:border-violet-500/50 transition-all"
+                            >
+                              <Newspaper size={16} className="text-violet-400 group-hover:scale-110 transition-transform" />
+                              <span className="text-[6px] uppercase tracking-wider text-violet-400/70 mt-0.5">Jina</span>
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md">
+                                <ExternalLink size={14} className="text-white" />
+                              </div>
+                            </a>
+                          )}
                         </td>
                         <td className="px-4 py-3 font-medium">
                           {ad.brand || "Unknown"}
