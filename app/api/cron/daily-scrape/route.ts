@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const mode = searchParams.get("mode") || "run"; // run | queue
-    const method = searchParams.get("method") || "jina"; // jina | screenshot
+    const method = searchParams.get("method") || "screenshot"; // jina | screenshot
     const dateStr = searchParams.get("date");
 
     // Get all active newspapers
