@@ -4,7 +4,9 @@
  */
 
 import { prisma, Prisma } from "@/lib/prisma";
+import { saveFile } from "@/lib/storage";
 import { getAdapter } from "./adapters";
+import { capturePage, closeBrowser } from "./capture";
 import { analyzeJinaContent, fetchWithJina } from "./jina";
 import { getReviewStatus } from "./confidence";
 
@@ -120,6 +122,14 @@ export async function runJinaPipeline(
       }
 
       try {
+        await logJob("info", `Capturing page screenshot: ${section} (${url})`);
+        const captured = await capturePage(url, section, adapter.config);
+
+        const datePath = date.toISOString().split("T")[0];
+        const screenshotFilename = `${section.replace(/\//g, "_") || "portrait"}.png`;
+        const storageKey = `captures/${newspaperSlug}/${datePath}/${screenshotFilename}`;
+        const finalScreenshotKey = await saveFile(storageKey, captured.screenshot);
+
         await logJob("info", `Jina fetching section: ${section} (${url})`);
         const jina = await fetchWithJina(url);
         const extractedAds = await analyzeJinaContent(jina.content, url);
@@ -129,7 +139,6 @@ export async function runJinaPipeline(
         for (const ad of extractedAds) {
           const reviewStatus = getReviewStatus(ad.confidence);
 
-          // Attempt a lightweight dedup: same platform + brand + product + landing_domain.
           const landingDomain = safeDomain(ad.landing_domain);
           const existing = await prisma.adCapture.findFirst({
             where: {
@@ -151,6 +160,7 @@ export async function runJinaPipeline(
                 confidenceScore: Math.max(existing.confidenceScore, ad.confidence),
                 reviewStatus,
                 source_url: url,
+                imageKey: finalScreenshotKey,
               },
             });
           } else {
@@ -159,7 +169,7 @@ export async function runJinaPipeline(
                 pageId: null,
                 campaignId: null,
                 captureDate: date,
-                imageKey: null,
+                imageKey: finalScreenshotKey,
                 perceptualHash: null,
                 brand: ad.brand,
                 product: ad.product,
@@ -223,5 +233,7 @@ export async function runJinaPipeline(
       data: { status: "failed", completedAt: new Date() },
     });
     throw error;
+  } finally {
+    await closeBrowser();
   }
 }
