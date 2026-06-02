@@ -19,8 +19,13 @@ function getRedisConnection() {
   };
 }
 
-// Initialize queue (BullMQ will create its own Redis connections from options)
-const scrapeQueue = new Queue("daily-scrape", { connection: getRedisConnection() });
+let _scrapeQueue: Queue | null = null;
+function getQueue() {
+  if (!_scrapeQueue) {
+    _scrapeQueue = new Queue("daily-scrape", { connection: getRedisConnection() });
+  }
+  return _scrapeQueue;
+}
 
 export const maxDuration = 60;
 
@@ -93,7 +98,7 @@ export async function GET(req: NextRequest) {
       const jobs = [];
       for (const newspaper of newspapers) {
         try {
-          const job = await scrapeQueue.add(
+          const job = await getQueue().add(
             "scrape-newspaper",
             {
               newspaperId: newspaper.id,
