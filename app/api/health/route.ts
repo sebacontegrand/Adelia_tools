@@ -22,6 +22,7 @@ export async function GET() {
       JINA_API_KEY: Boolean(process.env.JINA_API_KEY),
       BROWSERLESS_API_KEY: Boolean(process.env.BROWSERLESS_API_KEY),
       CRON_SECRET: Boolean(process.env.CRON_SECRET),
+      BLOB_READ_WRITE_TOKEN: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
       REDIS_URL: Boolean(process.env.REDIS_URL),
     },
     latencyMs: Date.now() - startedAt,

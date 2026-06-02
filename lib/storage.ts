@@ -1,6 +1,12 @@
 import { put, del, list } from "@vercel/blob";
 
+const hasBlobToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+
 export async function saveFile(key: string, content: Buffer): Promise<string> {
+  if (!hasBlobToken) {
+    console.warn("[Storage] BLOB_READ_WRITE_TOKEN not set — images won't persist. Set up Vercel Blob storage in dashboard.");
+    return `/${key}`;
+  }
   try {
     const { url } = await put(key, content, {
       access: "public",
@@ -15,6 +21,7 @@ export async function saveFile(key: string, content: Buffer): Promise<string> {
 }
 
 export async function deleteStoragePath(key: string): Promise<void> {
+  if (!hasBlobToken) return;
   try {
     const { blobs } = await list({ prefix: key });
     if (blobs.length > 0) {

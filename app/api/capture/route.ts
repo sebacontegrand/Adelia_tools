@@ -10,6 +10,8 @@ import { runCapturePipeline } from "@/lib/capture/pipeline";
 import { runJinaPipeline } from "@/lib/capture/pipeline-jina";
 import { getAvailableAdapters } from "@/lib/capture/adapters";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
